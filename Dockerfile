@@ -39,17 +39,13 @@ RUN --mount=from=fail2ban-src,source=/src/fail2ban,target=/tmp/fail2ban,rw \
   && 2to3 -w --no-diffs bin/* fail2ban \
   && pip3 install . \
   && apk del build-dependencies \
-  && rm -rf /etc/fail2ban/jail.d
+  && rm -rf /etc/fail2ban/jail.d \
+  && useradd -u 1005 fail2ban \
+  && chown -R fail2ban /etc/fail2ban /var/run/fail2ban
 
 COPY entrypoint.sh /entrypoint.sh
 
 ENV TZ="UTC"
-
-# Create a new user named "fail2ban"
-RUN useradd -u 1500 fail2ban
-
-# Change the owner of the /etc/fail2ban and /var/run/fail2ban folder to the "fail2ban" user
-RUN chown -R fail2ban /etc/fail2ban /var/run/fail2ban
 
 VOLUME [ "/data" ]
 
