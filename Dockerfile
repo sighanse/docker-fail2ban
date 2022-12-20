@@ -39,7 +39,7 @@ RUN --mount=from=fail2ban-src,source=/src/fail2ban,target=/tmp/fail2ban,rw \
   && pip3 install . \
   && apk del build-dependencies \
   && rm -rf /etc/fail2ban/jail.d \
-  && adduser -u 1005 fail2ban \
+  && adduser --uid "1005" --disabled-password --no-create-home fail2ban \
   && chown -R fail2ban /etc/fail2ban /var/run/fail2ban
 
 COPY entrypoint.sh /entrypoint.sh
