@@ -44,6 +44,12 @@ COPY entrypoint.sh /entrypoint.sh
 
 ENV TZ="UTC"
 
+# Create a new user named "fail2ban"
+RUN useradd -u 1500 fail2ban
+
+# Change the owner of the /etc/fail2ban and /var/run/fail2ban folder to the "fail2ban" user
+RUN chown -R fail2ban /etc/fail2ban /var/run/fail2ban
+
 VOLUME [ "/data" ]
 
 ENTRYPOINT [ "/entrypoint.sh" ]
