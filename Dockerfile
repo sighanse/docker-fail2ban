@@ -32,6 +32,7 @@ RUN --mount=from=fail2ban-src,source=/src/fail2ban,target=/tmp/fail2ban,rw \
     py3-pip \
     py3-setuptools \
     python3-dev \
+    shadow \
   && pip3 install --upgrade pip \
   && pip3 install dnspython3 pyinotify \
   && cd /tmp/fail2ban \
