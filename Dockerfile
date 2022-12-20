@@ -32,7 +32,6 @@ RUN --mount=from=fail2ban-src,source=/src/fail2ban,target=/tmp/fail2ban,rw \
     py3-pip \
     py3-setuptools \
     python3-dev \
-    shadow \
   && pip3 install --upgrade pip \
   && pip3 install dnspython3 pyinotify \
   && cd /tmp/fail2ban \
@@ -40,7 +39,7 @@ RUN --mount=from=fail2ban-src,source=/src/fail2ban,target=/tmp/fail2ban,rw \
   && pip3 install . \
   && apk del build-dependencies \
   && rm -rf /etc/fail2ban/jail.d \
-  && useradd -u 1005 fail2ban \
+  && adduser -u 1005 fail2ban \
   && chown -R fail2ban /etc/fail2ban /var/run/fail2ban
 
 COPY entrypoint.sh /entrypoint.sh
