@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 ARG FAIL2BAN_VERSION=1.0.2
-ARG ALPINE_VERSION=3.16
+ARG ALPINE_VERSION=3.17
 
 FROM --platform=$BUILDPLATFORM alpine:${ALPINE_VERSION} AS fail2ban-src
 RUN apk add --no-cache git
@@ -38,11 +38,11 @@ RUN --mount=from=fail2ban-src,source=/src/fail2ban,target=/tmp/fail2ban,rw \
   && 2to3 -w --no-diffs bin/* fail2ban \
   && pip3 install . \
   && apk del build-dependencies \
-  && rm -rf /etc/fail2ban/jail.d \
-  && adduser --uid "1005" --disabled-password --no-create-home fail2ban \
-  && chown -R fail2ban /etc/fail2ban /var/run/fail2ban
+  && rm -rf /etc/fail2ban/jail.d
 
 COPY entrypoint.sh /entrypoint.sh
+
+RUN adduser --uid "1005" --disabled-password --no-create-home fail2ban && chown -R fail2ban /etc/fail2ban /var/run/fail2ban
 
 ENV TZ="UTC"
 
