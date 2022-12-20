@@ -42,7 +42,7 @@ RUN --mount=from=fail2ban-src,source=/src/fail2ban,target=/tmp/fail2ban,rw \
 
 COPY entrypoint.sh /entrypoint.sh
 
-RUN adduser --uid "1005" --disabled-password --no-create-home fail2ban && chown -R fail2ban /etc/fail2ban /var/run/fail2ban
+RUN adduser --uid "1005" --disabled-password --no-create-home fail2ban && chown -R fail2ban /etc/fail2ban /var/run/fail2ban /etc/ssmtp && chown fail2ban /etc
 
 ENV TZ="UTC"
 
