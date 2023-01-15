@@ -2,10 +2,17 @@ name: Docker Image CI
 
 on:
   push:
-    branches: [ "master" ]
+    branches:
+      - 'master'
+    tags:
+      - '*'
+    paths-ignore:
+      - '**.md'
   pull_request:
-    branches: [ "master" ]
 
+env:
+  DOCKERHUB_SLUG: sigurdh/docker-fail2ban
+  
 jobs:
 
   build:
@@ -13,6 +20,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Docker meta
+      id: meta
+      uses: docker/metadata-action@v4
+      with:
+        images: |
+          ${{ env.DOCKERHUB_SLUG }}
+        tags: |
+          type=match,pattern=(.*)-r,group=1
+          type=ref,event=pr
+          type=edge
+        labels: |
+          org.opencontainers.image.title=Fail2ban
+          org.opencontainers.image.description=Intrusion prevention software framework that protects computer servers from brute-force attacks
+            
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
     
