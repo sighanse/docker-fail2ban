@@ -1,5 +1,6 @@
 ## fail2ban with support for nonroot
 A fork from crazymax/fail2ban with support for nonroot and k8s. Made for use with cloudflare API only.
+Available as a docker image here: https://hub.docker.com/r/sigurdh/docker-fail2ban
 
 The rest of this readme is from the original source
 
