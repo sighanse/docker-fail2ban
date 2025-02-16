@@ -1,29 +1,27 @@
 # syntax=docker/dockerfile:1
 
-ARG FAIL2BAN_VERSION=1.0.2
-ARG ALPINE_VERSION=3.17.1
+ARG FAIL2BAN_VERSION=1.1.0
+ARG ALPINE_VERSION=3.21
 
-FROM --platform=$BUILDPLATFORM alpine:${ALPINE_VERSION} AS fail2ban-src
-RUN apk add --no-cache git
-WORKDIR /src/fail2ban
-RUN git init . && git remote add origin "https://github.com/fail2ban/fail2ban.git"
+FROM --platform=$BUILDPLATFORM scratch AS src
 ARG FAIL2BAN_VERSION
-RUN git fetch origin "${FAIL2BAN_VERSION}" && git checkout -q FETCH_HEAD
+ADD "https://github.com/fail2ban/fail2ban.git#${FAIL2BAN_VERSION}" .
 
 FROM alpine:${ALPINE_VERSION}
-RUN --mount=from=fail2ban-src,source=/src/fail2ban,target=/tmp/fail2ban,rw \
+RUN --mount=from=src,target=/tmp/fail2ban,rw \
   apk --update --no-cache add \
     bash \
     curl \
     grep \
     ipset \
     iptables \
-    ip6tables \
+    iptables-legacy \
     kmod \
     nftables \
     openssh-client-default \
     python3 \
-    ssmtp \
+    py3-dnspython \
+    py3-inotify \
     tzdata \
     wget \
     whois \
@@ -32,17 +30,15 @@ RUN --mount=from=fail2ban-src,source=/src/fail2ban,target=/tmp/fail2ban,rw \
     py3-pip \
     py3-setuptools \
     python3-dev \
-  && pip3 install --upgrade pip \
-  && pip3 install dnspython3 pyinotify \
   && cd /tmp/fail2ban \
   && 2to3 -w --no-diffs bin/* fail2ban \
-  && pip3 install . \
+  && python3 setup.py install --without-tests \
   && apk del build-dependencies \
-  && rm -rf /etc/fail2ban/jail.d
+  && rm -rf /etc/fail2ban/jail.d /root/.cache
 
 COPY entrypoint.sh /entrypoint.sh
 
-RUN adduser --uid "1005" --disabled-password --no-create-home -s /sbin/nologin fail2ban && chown -R fail2ban /etc/fail2ban /var/run/fail2ban /etc/ssmtp && chown fail2ban /etc
+RUN adduser --uid "1005" --disabled-password --no-create-home -s /sbin/nologin fail2ban && chown -R fail2ban /etc/fail2ban /var/run/fail2ban && chown fail2ban /etc
 
 ENV TZ="UTC"
 USER fail2ban
