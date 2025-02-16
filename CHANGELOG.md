@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.1.0-r1 (2024/05/09)
+
+* Support iptables-legacy for old kernels (#165)
+* Fallback to iptables-legacy if host doesn't support nft. Mode can be enforced
+  with `IPTABLES_MODE` env var (#167)
+
+## 1.1.0-r0 (2024/05/01)
+
+* Fail2ban 1.1.0 (#162)
+* Alpine Linux 3.19 (#163)
+
+## 1.0.2-r1 (2023/08/29)
+
+* Alpine Linux 3.18 (#149)
+
 ## 1.0.2-r0 (2022/12/29)
 
 * Fail2ban 1.0.2 (#132)

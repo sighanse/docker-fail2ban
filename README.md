@@ -22,8 +22,7 @@ ___
 [Fail2ban](https://www.fail2ban.org) Docker image to ban hosts that cause
 multiple authentication errors.
 
-> **Note**
-> 
+> [!TIP] 
 > Want to be notified of new releases? Check out 🔔 [Diun (Docker Image Update Notifier)](https://github.com/crazy-max/diun)
 > project!
 
@@ -41,10 +40,10 @@ ___
   * [`DOCKER-USER` chain](#docker-user-chain)
   * [`DOCKER-USER` and `INPUT` chains](#docker-user-and-input-chains)
   * [Jails examples](#jails-examples)
-  * [Use iptables tooling without nftables backend](#use-iptables-tooling-without-nftables-backend)
   * [Use fail2ban-client](#use-fail2ban-client)
   * [Global jail configuration](#global-jail-configuration)
   * [Custom jails, actions and filters](#custom-jails-actions-and-filters)
+  * [Sending email using a sidecar container](#sending-email-using-a-sidecar-container)
 * [Contributing](#contributing)
 * [License](#license)
 
@@ -71,17 +70,17 @@ docker buildx bake image-all
 Following platforms for this image are available:
 
 ```
-$ docker run --rm mplatform/mquery crazymax/fail2ban:latest
-Image: crazymax/fail2ban:latest
- * Manifest List: Yes
- * Supported platforms:
-   - linux/amd64
-   - linux/arm/v6
-   - linux/arm/v7
-   - linux/arm64
-   - linux/386
-   - linux/ppc64le
-   - linux/s390x
+$ docker buildx imagetools inspect crazymax/fail2ban --format "{{json .Manifest}}" | \
+  jq -r '.manifests[] | select(.platform.os != null and .platform.os != "unknown") | .platform | "\(.os)/\(.architecture)\(if .variant then "/" + .variant else "" end)"'
+
+linux/386
+linux/amd64
+linux/arm/v6
+linux/arm/v7
+linux/arm64
+linux/ppc64le
+linux/riscv64
+linux/s390x
 ```
 
 ## Environment variables
@@ -90,18 +89,7 @@ Image: crazymax/fail2ban:latest
 * `F2B_LOG_TARGET`: Set the log target. This could be a file, SYSLOG, STDERR or STDOUT (default `STDOUT`)
 * `F2B_LOG_LEVEL`: Log level output (default `INFO`)
 * `F2B_DB_PURGE_AGE`: Age at which bans should be purged from the database (default `1d`)
-* `SSMTP_HOST`: SMTP server host
-* `SSMTP_PORT`: SMTP server port (default `25`)
-* `SSMTP_HOSTNAME`: Full hostname (default `$(hostname -f)`)
-* `SSMTP_USER`: SMTP username
-* `SSMTP_PASSWORD`: SMTP password
-* `SSMTP_TLS`: Use TLS to talk to the SMTP server (default `NO`)
-* `SSMTP_STARTTLS`: Specifies whether ssmtp does a EHLO/STARTTLS before starting SSL negotiation (default `NO`)
-
-> **Note**
-> 
-> `SSMTP_PASSWORD_FILE` can be used to fill in the value from a file, especially
-> for Docker's secrets feature.
+* `IPTABLES_MODE`: Choose between iptables `nft` or `legacy` mode. (default `auto`)
 
 ## Volumes
 
@@ -117,8 +105,8 @@ for example. Edit the Compose and env files with your preferences and run the
 following commands:
 
 ```console
-$ docker-compose up -d
-$ docker-compose logs -f
+$ docker compose up -d
+$ docker compose logs -f
 ```
 
 ### Command line
@@ -140,8 +128,8 @@ $ docker run -d --name fail2ban --restart always \
 Recreate the container whenever I push an update:
 
 ```console
-$ docker-compose pull
-$ docker-compose up -d
+$ docker compose pull
+$ docker compose up -d
 ```
 
 ## Notes
@@ -183,38 +171,6 @@ And others using the `INPUT` chain:
 * [proxmox](examples/jails/proxmox)
 * [sshd](examples/jails/sshd)
 
-### Use iptables tooling without nftables backend
-
-As you may know, [nftables](https://wiki.nftables.org) is available as a modern
-replacement for the kernel's iptables subsystem on Linux. 
-
-This image still uses `iptables` to preserve backwards compatibility but [an issue is opened](https://github.com/crazy-max/docker-fail2ban/issues/29)
-about its implementation.
-
-If your system's `iptables` tooling uses the nftables backend, this will throw
-the error `stderr: 'iptables: No chain/target/match by that name.'`. You need
-to switch the `iptables` tooling to 'legacy' mode to avoid these problems. This
-is the case on at least Debian 10 (Buster), Ubuntu 19.04, Fedora 29 and newer
-releases of these distributions by default. RHEL 8 does not support switching
-to legacy mode, and is therefore currently incompatible with this image.
-
-On Ubuntu or Debian:
-
-```console
-$ update-alternatives --set iptables /usr/sbin/iptables-legacy
-$ update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy
-$ update-alternatives --set arptables /usr/sbin/arptables-legacy
-$ update-alternatives --set ebtables /usr/sbin/ebtables-legacy
-```
-
-On Fedora:
-
-```console
-$ update-alternatives --set iptables /usr/sbin/iptables-legacy
-```
-
-Then reboot to apply changes.
-
 ### Use fail2ban-client
 
 [Fail2ban commands](http://www.fail2ban.org/wiki/index.php/Commands) can be used
@@ -222,35 +178,27 @@ through the container. Here is an example if you want to ban an IP manually:
 
 ```console
 $ docker exec -t <CONTAINER> fail2ban-client set <JAIL> banip <IP>
-``` 
+```
 
 ### Global jail configuration
 
 You can provide customizations in `/data/jail.d/*.local` files.
 
-For example to change the default bantime for all jails, send an e-mail with
-whois report and relevant log lines to the destemail:
+For example, to change the default bantime for all jails:
 
 ```text
 [DEFAULT]
 bantime = 1h
-destemail = root@localhost
-sender = root@$(hostname -f)
-action = %(action_mwl)s
 ```
 
-> **Warning**
-> 
-> If you want email to be sent after a ban, you have to configure SSMTP env vars
-
-FYI, here is the order *jail* configuration would be loaded:
-
-```text
-jail.conf
-jail.d/*.conf (in alphabetical order)
-jail.local
-jail.d/*.local (in alphabetical order)
-```
+> [!NOTE]
+> Loading order for jail configuration:
+> ```text
+> jail.conf
+> jail.d/*.conf (in alphabetical order)
+> jail.local
+> jail.d/*.local (in alphabetical order)
+> ```
 
 A sample configuration file is [available on the official repository](https://github.com/fail2ban/fail2ban/blob/master/config/jail.conf).
 
@@ -260,15 +208,20 @@ Custom jails, actions and filters can be added respectively in `/data/jail.d`,
 `/data/action.d` and `/data/filter.d`. If you add an action/filter that already
 exists, it will be overriden.
 
-> **Warning**
-> 
+> [!WARNING]
 > Container has to be restarted to propagate changes
+
+### Sending email using a sidecar container
+
+If you want to send emails using a sidecar container, see the example in
+[examples/smtp](examples/smtp). It uses the [smtp.py action](https://github.com/fail2ban/fail2ban/blob/1.1.0/config/action.d/smtp.py)
+and [msmtpd SMTP relay](https://github.com/crazy-max/docker-msmtpd) image.
 
 ## Contributing
 
 Want to contribute? Awesome! The most basic way to show your support is to star
 the project, or to raise issues. You can also support this project by [**becoming a sponsor on GitHub**](https://github.com/sponsors/crazy-max)
-or by making a [Paypal donation](https://www.paypal.me/crazyws) to ensure this
+or by making a [PayPal donation](https://www.paypal.me/crazyws) to ensure this
 journey continues indefinitely!
 
 Thanks again for your support, it is much appreciated! :pray:
