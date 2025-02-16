@@ -5,64 +5,12 @@ TZ=${TZ:-UTC}
 F2B_LOG_TARGET=${F2B_LOG_TARGET:-STDOUT}
 F2B_LOG_LEVEL=${F2B_LOG_LEVEL:-INFO}
 F2B_DB_PURGE_AGE=${F2B_DB_PURGE_AGE:-1d}
-
-SSMTP_PORT=${SSMTP_PORT:-25}
-SSMTP_HOSTNAME=${SSMTP_HOSTNAME:-$(hostname -f)}
-SSMTP_TLS=${SSMTP_TLS:-NO}
-SSMTP_STARTTLS=${SSMTP_STARTTLS:-NO}
-
-# From https://github.com/docker-library/mariadb/blob/master/docker-entrypoint.sh#L21-L41
-# usage: file_env VAR [DEFAULT]
-#    ie: file_env 'XYZ_DB_PASSWORD' 'example'
-# (will allow for "$XYZ_DB_PASSWORD_FILE" to fill in the value of
-#  "$XYZ_DB_PASSWORD" from a file, especially for Docker's secrets feature)
-file_env() {
-  local var="$1"
-  local fileVar="${var}_FILE"
-  local def="${2:-}"
-  if [ "${!var:-}" ] && [ "${!fileVar:-}" ]; then
-    echo >&2 "error: both $var and $fileVar are set (but are exclusive)"
-    exit 1
-  fi
-  local val="$def"
-  if [ "${!var:-}" ]; then
-    val="${!var}"
-  elif [ "${!fileVar:-}" ]; then
-    val="$(< "${!fileVar}")"
-  fi
-  export "$var"="$val"
-  unset "$fileVar"
-}
+IPTABLES_MODE=${IPTABLES_MODE:-auto}
 
 # Timezone
 echo "Setting timezone to ${TZ}..."
 ln -snf /usr/share/zoneinfo/${TZ} /etc/localtime
 echo ${TZ} > /etc/timezone
-
-# SSMTP
-file_env 'SSMTP_PASSWORD'
-echo "Setting SSMTP configuration..."
-if [ -z "$SSMTP_HOST" ] ; then
-  echo "WARNING: SSMTP_HOST must be defined if you want fail2ban to send emails"
-else
-  cat > /etc/ssmtp/ssmtp.conf <<EOL
-mailhub=${SSMTP_HOST}:${SSMTP_PORT}
-hostname=${SSMTP_HOSTNAME}
-FromLineOverride=YES
-UseTLS=${SSMTP_TLS}
-UseSTARTTLS=${SSMTP_STARTTLS}
-EOL
-  # Authentication to SMTP server is optional.
-  if [ -n "$SSMTP_USER" ] ; then
-    cat >> /etc/ssmtp/ssmtp.conf <<EOL
-AuthUser=${SSMTP_USER}
-AuthPass=${SSMTP_PASSWORD}
-EOL
-  fi
-fi
-unset SSMTP_HOST
-unset SSMTP_USER
-unset SSMTP_PASSWORD
 
 # Init
 echo "Initializing files and folders..."
@@ -75,6 +23,7 @@ sed -i "s|logtarget =.*|logtarget = $F2B_LOG_TARGET|g" /etc/fail2ban/fail2ban.co
 sed -i "s/loglevel =.*/loglevel = $F2B_LOG_LEVEL/g" /etc/fail2ban/fail2ban.conf
 sed -i "s/dbfile =.*/dbfile = \/data\/db\/fail2ban\.sqlite3/g" /etc/fail2ban/fail2ban.conf
 sed -i "s/dbpurgeage =.*/dbpurgeage = $F2B_DB_PURGE_AGE/g" /etc/fail2ban/fail2ban.conf
+sed -i "s/#allowipv6 =.*/allowipv6 = auto/g" /etc/fail2ban/fail2ban.conf
 
 # Check custom actions
 echo "Checking for custom actions in /data/action.d..."
@@ -99,5 +48,25 @@ for filter in ${filters}; do
   echo "  Add custom filter ${filter}..."
   ln -sf "/data/filter.d/${filter}" "/etc/fail2ban/filter.d/"
 done
+
+iptablesLegacy=0
+if [ "$IPTABLES_MODE" = "auto" ] && ! iptables -L &> /dev/null; then
+  echo "WARNING: iptables-nft is not supported by the host, falling back to iptables-legacy"
+  iptablesLegacy=1
+elif [ "$IPTABLES_MODE" = "legacy" ]; then
+  echo "WARNING: iptables-legacy enforced"
+  iptablesLegacy=1
+fi
+if [ "$iptablesLegacy" -eq 1 ]; then
+  ln -sf /usr/sbin/xtables-legacy-multi /usr/sbin/iptables
+  ln -sf /usr/sbin/xtables-legacy-multi /usr/sbin/iptables-save
+  ln -sf /usr/sbin/xtables-legacy-multi /usr/sbin/iptables-restore
+  ln -sf /usr/sbin/xtables-legacy-multi /usr/sbin/ip6tables
+  ln -sf /usr/sbin/xtables-legacy-multi /usr/sbin/ip6tables-save
+  ln -sf /usr/sbin/xtables-legacy-multi /usr/sbin/ip6tables-restore
+fi
+
+iptables -V
+nft -v
 
 exec "$@"
