@@ -38,7 +38,7 @@ jobs:
           org.opencontainers.image.description=Intrusion prevention software framework that protects computer servers from brute-force attacks
             
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
+      uses: docker/setup-buildx-action@v3
     
     - name: Login to DockerHub
       if: github.event_name != 'pull_request'
